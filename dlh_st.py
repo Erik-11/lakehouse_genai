@@ -393,15 +393,15 @@ def domain():
         st.session_state.messages_dom = []
 
     info_tables = ""
-    response = ""
-    col1, col2 = st.columns(2)
-    with col1:
+    d_response = {}
+    d_c1, d_c2 = st.columns(2)
+    with d_c1:
         # COGER DINAMICAMENTE Y SACAR A OTRA FUNCIÓN
-        database = st.selectbox("DATABASE", ["", "STARTUPS", "DATAMARTA", "DATAQUALITY", "FINOPS"])
-    with col2:
-        if database != '':
+        dom_database = st.selectbox("DATABASE", ["", "STARTUPS", "DATAMARTA", "DATAQUALITY", "FINOPS"])
+    with d_c2:
+        if dom_database != '':
             schemas = [""]
-            schemas.extend([row[0] for row in get_schema_by_catalog(database)])
+            schemas.extend([row[0] for row in get_schema_by_catalog(dom_database)])
             schema = st.selectbox("SCHEMA:", schemas)
         else:
             schema = ""
@@ -409,12 +409,13 @@ def domain():
     if schema != '':
         st.write("Pulsa para iniciar la conversación")
         if st.button("Continuar"):
-            info_tables = get_tables_by_catalog_schema(database, schema)
+            info_tables = get_tables_by_catalog_schema(dom_database, schema)
             if st.session_state.control_domain:
                 st.session_state.control_domain = False
-                r = json.loads(bot_domain.send_message("Estas son las tablas que tengo. Identifica los dominios y qué tablas van en cada dominio: \n"+str(info_tables)).replace('\n', "").strip())
-                response = r["explanation"]
-                st.session_state.domains = r["domains"]
+                d_response = json.loads(bot_domain.send_message("Estas son las tablas que tengo. Identifica los dominios y qué tablas van en cada dominio: \n"+str(info_tables)).replace('\n', "").strip())
+                response = d_response["explanation"]
+                st.session_state.domains = d_response["domains"]
+                st.session_state.sql =  d_response["sql"]
                 st.session_state.messages_dom.append({"role": "assistant", "content": response})
 
     st.markdown("---")
@@ -428,14 +429,15 @@ def domain():
         st.session_state.messages_dom.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
-        response = bot_domain.send_message("Estos son los dominios actuales:\n" + str(st.session_state.domains) + "\n\nY este es el nuevo prompt del usuario:\n" + prompt)
+        d_response = bot_domain.send_message("Estos son los dominios actuales:\n" + str(st.session_state.domains) + "\n\nY este es el nuevo prompt del usuario:\n" + prompt)
         
-        response = json.loads(response.replace('\n', "").strip())
-        if "explanation" in response and "domains" in response:
-            res = response["explanation"]
-            st.session_state.domains = response["domains"]
+        d_response = json.loads(d_response.replace('\n', "").strip())
+        if "explanation" in d_response and "domains" in d_response:
+            res = d_response["explanation"]
+            st.session_state.domains = d_response["domains"]
+            st.session_state.sql =  d_response["sql"]
         else:
-            res = response
+            res = d_response
         
         with st.chat_message("assistant"):
             response_stream = st.write_stream(response_generator(str(res)))
@@ -450,6 +452,10 @@ def domain():
                 st.write("Tablas:")
                 for table in domain['tables']:
                     st.markdown(f"- {table}")
+    
+        if st.button("Generar SQL"):
+            st.markdown("### SQL Generado")
+            st.code(st.session_state.sql, language="sql")
 
 def datamarta():
     st.subheader("Selecciona DATABASE y SCHEMA")
@@ -491,6 +497,7 @@ def datamarta():
                                                   "\n\nRecomiendame un DataMart con esos datos y trabaja mano a mano con el usuario. ").replace('\n', "").strip())
                 response = r["explanation"]
                 st.session_state.datamart = r["datamart"]
+                st.session_state.sql =  r["sql"]
                 st.session_state.messages_marta.append({"role": "assistant", "content": response})
     
     st.markdown("---")
@@ -511,6 +518,7 @@ def datamarta():
         if "explanation" in response and "datamart" in response:
             res = response["explanation"]
             st.session_state.datamart = response["datamart"]
+            st.session_state.sql =  response["sql"]
         else:
             res = response
         
@@ -527,6 +535,11 @@ def datamarta():
                 st.write("Columnas:")
                 for col in esquema['cols']:
                     st.markdown(f"- **{col['name']}** ({col['key']})")
+
+        if st.button("Generar SQL"):
+            st.markdown("### SQL Generado")
+            st.code(st.session_state.sql, language="sql")
+
 
 def kpi_assistant():
     st.subheader("Selecciona DATABASE y SCHEMA")
